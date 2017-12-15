@@ -66,8 +66,10 @@ def triangle(a, b, c):
                 return "Scalene"
 
 def main(var):
-    v = cgi_decode(var) + dots(var) + triangle(int(v[0]), int(v[1]), int(v[2]))
-    print(v)
+    r = cgi_decode(var)
+    v = r.split(' ')
+    x = dots(var) + triangle(int(v[0]), int(v[1]), int(v[2]))
+    print(x)
 
 if __name__ == '__main__':
     import sys

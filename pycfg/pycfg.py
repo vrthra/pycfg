@@ -71,7 +71,7 @@ class CFGNode(dict):
                 v = re.sub(r'^_%s:' % i, '%s:' % i, v)
             return v
         G = pygraphviz.AGraph(directed=True)
-        cov_lines = [i for i,j in arcs]
+        cov_lines = set(i for i,j in arcs)
         for nid, cnode in CFGNode.cache.items():
             G.add_node(cnode.rid)
             n = G.get_node(cnode.rid)
@@ -87,6 +87,12 @@ class CFGNode(dict):
                     if  (plineno, lineno) in arcs:
                         G.add_edge(pn.rid, cnode.rid, color='blue')
                     elif plineno == lineno and lineno in cov_lines:
+                        G.add_edge(pn.rid, cnode.rid, color='blue')
+                    elif hasattr(cnode, 'fn_exit_node') and plineno in cov_lines:  # child is exit and parent is covered
+                        G.add_edge(pn.rid, cnode.rid, color='blue')
+                    elif hasattr(pn, 'fn_exit_node') and len(set(n.lineno() for n in pn.parents) | cov_lines) > 0: # parent is exit and one of its parents is covered.
+                        G.add_edge(pn.rid, cnode.rid, color='blue')
+                    elif plineno in cov_lines and hasattr(cnode, 'calleelink'): # child is a callee (has calleelink) and one of the parents is covered.
                         G.add_edge(pn.rid, cnode.rid, color='blue')
                     else:
                         G.add_edge(pn.rid, cnode.rid, color='red')
@@ -304,6 +310,7 @@ class PyCFG:
         enter_node.calleelink = True
         ast.copy_location(enter_node.ast_node, node)
         exit_node = CFGNode(parents=[], ast=ast.parse('exit: %s(%s)' % (node.name, ', '.join([a.arg for a in node.args.args])) ).body[0]) # sentinel
+        exit_node.fn_exit_node = True
         ast.copy_location(exit_node.ast_node, node)
         enter_node.return_nodes = [] # sentinel
 
@@ -443,7 +450,7 @@ if __name__ == '__main__':
     parser.add_argument('pythonfile', help='The python file to be analyzed')
     parser.add_argument('-d','--dots', action='store_true', help='generate a dot file')
     parser.add_argument('-c','--cfg', action='store_true', help='print cfg')
-    parser.add_argument('-x','--coverage', action='store', dest='coverage', type=str, help='coverage file')
+    parser.add_argument('-x','--coverage', action='store', dest='coverage', type=str, help='branch coverage file')
     parser.add_argument('-y','--ccoverage', action='store', dest='ccoverage', type=str, help='custom coverage file')
     args = parser.parse_args()
     if args.dots:
@@ -459,7 +466,7 @@ if __name__ == '__main__':
         cfg = PyCFG()
         cfg.gen_cfg(slurp(args.pythonfile).strip())
         g = CFGNode.to_graph(arcs)
-        g.draw('out.png', prog='dot')
+        g.draw(args.pythonfile + '.png', prog='dot')
         print(g.string(), file=sys.stderr)
     elif args.cfg:
         cfg,first,last = get_cfg(args.pythonfile)
