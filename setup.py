@@ -21,7 +21,7 @@ This package generates a control flow graph of the passed python file based on t
           Inspect Makefile for a better idea
        """,
       classifiers=[
-        'Development Status :: 4 - Alpha',
+        'Development Status :: 3 - Alpha',
         'Environment :: Console',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
