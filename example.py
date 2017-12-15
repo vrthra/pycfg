@@ -68,7 +68,7 @@ def triangle(a, b, c):
 def main(var):
     r = cgi_decode(var)
     v = r.split(' ')
-    x = dots(var) + triangle(int(v[0]), int(v[1]), int(v[2]))
+    x = dots(var) + triangle(int(v[0]), int(v[1]), int(v[2])) + dots(var) + triangle(int(v[0]), int(v[1]), int(v[2]))
     print(x)
 
 if __name__ == '__main__':

@@ -48,8 +48,8 @@ class CFGNode(dict):
         self.parents = p
 
     def add_parent(self, p):
-        if p not in self.parents:
-            self.parents.append(p)
+        #if p not in self.parents:
+        self.parents.append(p)
 
     def add_parents(self, ps):
         for p in ps:
@@ -70,7 +70,7 @@ class CFGNode(dict):
             for i in ['if', 'while', 'for', 'elif']:
                 v = re.sub(r'^_%s:' % i, '%s:' % i, v)
             return v
-        G = pygraphviz.AGraph(directed=True)
+        G = pygraphviz.AGraph(strict=False, directed=True)
         cov_lines = set(i for i,j in arcs)
         for nid, cnode in CFGNode.cache.items():
             G.add_node(cnode.rid)
