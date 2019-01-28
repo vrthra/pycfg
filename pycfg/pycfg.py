@@ -11,14 +11,18 @@ import re
 import astunparse
 import pygraphviz
 
-
 class CFGNode(dict):
     registry = 0
     cache = {}
     stack = []
     def __init__(self, parents=[], ast=None):
-        assert type(parents) is list
-        self.parents = parents
+        #assert type(parents) is list
+        if type(parents) is tuple:
+            self.kind = parents[1]
+            self.parents = parents[0]
+        else:
+            self.kind = ''
+            self.parents = parents
         self.calls = []
         self.children = []
         self.ast_node = ast
@@ -30,7 +34,8 @@ class CFGNode(dict):
         return self.ast_node.lineno if hasattr(self.ast_node, 'lineno') else 0
 
     def __str__(self):
-        return "id:%d line[%d] parents: %s : %s" % (self.rid, self.lineno(), str([p.rid for p in self.parents]), self.source())
+        x = self.kind
+        return "id:%d line[%d] parents: %s : %s %s" % (self.rid, self.lineno(), str([p.rid for p in self.parents]), self.source(), x)
 
     def __repr__(self):
         return str(self)
@@ -167,7 +172,7 @@ class PyCFG:
         # the test node is looped back at the end of processing.
         _test_node.add_parents(p1)
 
-        return _test_node.exit_nodes + test_node
+        return _test_node.exit_nodes + (test_node, False)
 
 
     def on_while(self, node, myparents):
@@ -180,7 +185,7 @@ class PyCFG:
         # we attach the label node here so that break can find it.
 
         # now we evaluate the body, one at a time.
-        p1 = test_node
+        p1 = (test_node, True)
         for n in node.body:
             p1 = self.walk(n, p1)
 
@@ -188,16 +193,16 @@ class PyCFG:
         _test_node.add_parents(p1)
 
         # link label node back to the condition.
-        return _test_node.exit_nodes + test_node
+        return _test_node.exit_nodes + (test_node, False)
 
     def on_if(self, node, myparents):
         _test_node = CFGNode(parents=myparents, ast=ast.parse('_if: %s' % astunparse.unparse(node.test).strip()).body[0])
         ast.copy_location(_test_node.ast_node, node.test)
         test_node = self.walk(node.test, [_test_node])
-        g1 = test_node
+        g1 = (test_node, True)
         for n in node.body:
             g1 = self.walk(n, g1)
-        g2 = test_node
+        g2 = (test_node, False)
         for n in node.orelse:
             g2 = self.walk(n, g2)
 
@@ -248,7 +253,10 @@ class PyCFG:
         return self.walk(node.value, p)
 
     def on_return(self, node, myparents):
-        parent = myparents[0]
+        if type(myparents) is tuple:
+            parent = myparents[0][0]
+        else:
+            parent = myparents[0]
 
         val_node = self.walk(node.value, myparents)
         # on return look back to the function definition.
