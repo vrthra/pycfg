@@ -420,19 +420,22 @@ def to_graph(cache, arcs=[]):
 
             if arcs:
                 if  (plineno, lineno) in arcs:
-                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                    G.add_edge(pn.rid, cnode.rid, color='green')
                 elif plineno == lineno and lineno in cov_lines:
-                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                    G.add_edge(pn.rid, cnode.rid, color='green')
                 elif hasattr(cnode, 'fn_exit_node') and plineno in cov_lines:  # child is exit and parent is covered
-                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                    G.add_edge(pn.rid, cnode.rid, color='green')
                 elif hasattr(pn, 'fn_exit_node') and len(set(n.lineno() for n in pn.parents) | cov_lines) > 0: # parent is exit and one of its parents is covered.
-                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                    G.add_edge(pn.rid, cnode.rid, color='green')
                 elif plineno in cov_lines and hasattr(cnode, 'calleelink'): # child is a callee (has calleelink) and one of the parents is covered.
-                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                    G.add_edge(pn.rid, cnode.rid, color='green')
                 else:
                     G.add_edge(pn.rid, cnode.rid, color='red')
             else:
-                G.add_edge(pn.rid, cnode.rid)
+                if cnode.kind == True:
+                    G.add_edge(pn.rid, cnode.rid, color='blue', label='T')
+                else:
+                    G.add_edge(pn.rid, cnode.rid)
     return G
 
 def get_cfg(pythonfile):
