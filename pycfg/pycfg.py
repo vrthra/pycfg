@@ -11,6 +11,7 @@ import re
 import astunparse
 import pygraphviz
 
+
 class CFGNode(dict):
     registry = 0
     cache = {}
@@ -64,41 +65,6 @@ class CFGNode(dict):
     def to_json(self):
         return {'id':self.rid, 'parents': [p.rid for p in self.parents], 'children': [c.rid for c in self.children], 'calls': self.calls, 'at':self.lineno() ,'ast':self.source()}
 
-    @classmethod
-    def to_graph(cls, arcs=[]):
-        def unhack(v):
-            for i in ['if', 'while', 'for', 'elif']:
-                v = re.sub(r'^_%s:' % i, '%s:' % i, v)
-            return v
-        G = pygraphviz.AGraph(directed=True)
-        cov_lines = set(i for i,j in arcs)
-        for nid, cnode in CFGNode.cache.items():
-            G.add_node(cnode.rid)
-            n = G.get_node(cnode.rid)
-            lineno = cnode.lineno()
-            n.attr['label'] = "%d: %s" % (lineno, unhack(cnode.source()))
-            for pn in cnode.parents:
-                plineno = pn.lineno()
-                if hasattr(pn, 'calllink') and pn.calllink > 0 and not hasattr(cnode, 'calleelink'):
-                    G.add_edge(pn.rid, cnode.rid, style='dotted', weight=100)
-                    continue
-
-                if arcs:
-                    if  (plineno, lineno) in arcs:
-                        G.add_edge(pn.rid, cnode.rid, color='blue')
-                    elif plineno == lineno and lineno in cov_lines:
-                        G.add_edge(pn.rid, cnode.rid, color='blue')
-                    elif hasattr(cnode, 'fn_exit_node') and plineno in cov_lines:  # child is exit and parent is covered
-                        G.add_edge(pn.rid, cnode.rid, color='blue')
-                    elif hasattr(pn, 'fn_exit_node') and len(set(n.lineno() for n in pn.parents) | cov_lines) > 0: # parent is exit and one of its parents is covered.
-                        G.add_edge(pn.rid, cnode.rid, color='blue')
-                    elif plineno in cov_lines and hasattr(cnode, 'calleelink'): # child is a callee (has calleelink) and one of the parents is covered.
-                        G.add_edge(pn.rid, cnode.rid, color='blue')
-                    else:
-                        G.add_edge(pn.rid, cnode.rid, color='red')
-                else:
-                    G.add_edge(pn.rid, cnode.rid)
-        return G
 
 class PyCFG:
     """
@@ -415,6 +381,51 @@ def compute_dominator(cfg, start = 0, key='parents'):
 def slurp(f):
     with open(f, 'r') as f: return f.read()
 
+def gen_cfg(fnsrc, remove_start_stop=True):
+    CFGNode.cache = {}
+    CFGNode.registry = 0
+    cfg = PyCFG()
+    cfg.gen_cfg(fnsrc)
+    cache = dict(CFGNode.cache)
+    if remove_start_stop:
+        return {k:cache[k] for k in cache if cache[k].source() not in {'start', 'stop'}}
+    else:
+        return cache
+
+def to_graph(cache, arcs=[]):
+    def unhack(v):
+        for i in ['if', 'while', 'for', 'elif']:
+            v = re.sub(r'^_%s:' % i, '%s:' % i, v)
+        return v
+    G = pygraphviz.AGraph(directed=True)
+    cov_lines = set(i for i,j in arcs)
+    for nid, cnode in cache.items():
+        G.add_node(cnode.rid)
+        n = G.get_node(cnode.rid)
+        lineno = cnode.lineno()
+        n.attr['label'] = "%d: %s" % (lineno, unhack(cnode.source()))
+        for pn in cnode.parents:
+            plineno = pn.lineno()
+            if hasattr(pn, 'calllink') and pn.calllink > 0 and not hasattr(cnode, 'calleelink'):
+                G.add_edge(pn.rid, cnode.rid, style='dotted', weight=100)
+                continue
+
+            if arcs:
+                if  (plineno, lineno) in arcs:
+                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                elif plineno == lineno and lineno in cov_lines:
+                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                elif hasattr(cnode, 'fn_exit_node') and plineno in cov_lines:  # child is exit and parent is covered
+                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                elif hasattr(pn, 'fn_exit_node') and len(set(n.lineno() for n in pn.parents) | cov_lines) > 0: # parent is exit and one of its parents is covered.
+                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                elif plineno in cov_lines and hasattr(cnode, 'calleelink'): # child is a callee (has calleelink) and one of the parents is covered.
+                    G.add_edge(pn.rid, cnode.rid, color='blue')
+                else:
+                    G.add_edge(pn.rid, cnode.rid, color='red')
+            else:
+                G.add_edge(pn.rid, cnode.rid)
+    return G
 
 def get_cfg(pythonfile):
     cfg = PyCFG()
@@ -465,7 +476,7 @@ if __name__ == '__main__':
             arcs = []
         cfg = PyCFG()
         cfg.gen_cfg(slurp(args.pythonfile).strip())
-        g = CFGNode.to_graph(arcs)
+        g = CFGNode.to_graph(CFGNode.cache, arcs)
         g.draw(args.pythonfile + '.png', prog='dot')
         print(g.string(), file=sys.stderr)
     elif args.cfg:
