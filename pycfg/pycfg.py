@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Author: Rahul Gopinath <rahul.gopinath@cispa.saarland>
-# License: GPLv3
+# License: https://github.com/uds-se/fuzzingbook/blob/master/LICENSE.md
 """
 PyCFG for Python MCI
 Use http://viz-js.com/ to view digraph output
